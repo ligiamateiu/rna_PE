@@ -1,0 +1,77 @@
+# Please check the parameters, and adjust them according to your circumstance
+
+# Project name
+PROJECT: rnaseq_PE
+
+## ================== Shared parameters for some or all of the sub-workflows ==================
+TOOLSPATH: /miniconda3_rna/bin
+
+## the path to fastq files
+READSPATH: /work/rna_PE/test_data
+
+## the meta file describing the experiment settings
+METAFILE: /work/rna_PE/configs//sampleinfo.tsv
+
+## is the sequencing paired-end or single-end?
+END: pair  # "pair" only for now  
+
+## number of cores you want to allocate to this workflow
+NCORE: 2  # Use the number of samples
+
+## paths for intermediate outputs and final outputs
+OUTPUTPATH: /work/testPE/tmp #temporary output
+FINALOUTPUT: /work/testPE/results
+
+
+# ================== Configuration for alignment to genome and feature count ==================
+
+## genome and annotation files
+READLENGTH: 75
+ORGANISM: Human
+GENOME: /refs/hg38/hg38v112/HG38v112.fa
+ANNOTATION: /refs/hg38/hg38v112/Homo_sapiens.GRCh38.112.gtf
+GENOMEINDEX: /refs/hg38/hg38v112/hg38v112
+#generate index STAR --runMode genomeGenerate --genomeDir newindexfolder --genomeFastaFiles GENOME --sjdbGTFfile ANNOTATION --sjdbOverhang READLENGTH-1"
+ATTRIBUTE: gene_id  # the attribute used in annotation file. It's usually "gene_id", but double check that since it may also be "gene", "ID"...
+ADAPTERFILE: /software/miniconda3/envs/quantseq/opt/TruSeq3-PE.fa
+### aligner
+#ALIGNER: star
+ORIENTATION: 2
+# -s 0 unstranded, 2 RF/fr-firststrand stranded (dUTP), 1 FR/fr-secondstrand stranded (Ligation)
+
+
+# ================== Configuration for DEA ==================
+
+#covariate, max 2 allowed at the moment, "leave empty if NA eg. COVARIATE1: [""]    "
+COVARIATE1: ["gender"]
+COVARIATE2: []
+
+## the comparison(s) you want to do. If multiple comparisons, specify each pair (CONTROL & TREAT) in order respectively
+CONTROL: ["patient"]
+TREAT: ["control"]
+## length of 'CONTROL' should agree with that of 'TREAT'
+## what you fill in there should agree with the "group" column in metadata.tsv
+
+
+### The threshold of FDR/adjusted P-value for significantly differentially expressed genes
+FDR: 0.05
+### The threshold of logFoldChange of significantly differentially expressed genes to be used in enrichGO
+FCTHR: 0.58
+###generate violin plots for all DEG or top 50
+PLOTALLDEG: ["TOP"] #TOP or YES
+
+##generate violin plot for the following genes ensembl ids ENS or NO
+PLOT_GENES: ["ENSG00000108821","ENSG00000164692"]
+
+##PROTEIN_CODING_ONLY: ["YES"] the filtering step of the genes by "protein_coding" biotype in biomart
+PROTEIN_CODING_ONLY: ["YES"]
+
+#exclude genes from the DEA
+EXCLUDE_GENES_FROM_DEA: ["NO"]
+
+
+### in case of too large counts WT vs KO for a certain gene(s) rename dea folder and add the genes you want to exclude using their ensembl ID 
+#EXCLUDE_GENES_FROM ANALYSIS: ["NO"] #No or give the list 
+# ================== Configuration for visualization ==================
+
+

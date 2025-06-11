@@ -1,0 +1,55 @@
+import pandas as pd
+configfile: "configs/config_main.yaml"
+
+input_path = config["READSPATH"]
+samples = pd.read_csv(config["METAFILE"], sep = '\t', header = 0)['sample']
+end = config["END"]
+intermediate_path = config["OUTPUTPATH"] + "/trim"
+final_path = config["FINALOUTPUT"] + "/fastqc_after_trimming"
+adapter_file=config["ADAPTERFILE"]
+
+def trimFiles(wildcards):
+    read1_trim = expand(intermediate_path + "/{sample}_R1_val_1.fq.gz", sample = samples)
+    return read1_trim
+
+rule all:
+    input:
+        report = final_path + "/report_quality_control_after_trimming.html"
+        
+rule getReads:
+    output:
+        read1 = temp(intermediate_path + "/reads/{sample}_read1.fastq.gz"),
+        read2 =  temp(intermediate_path + "/reads/{sample}_read2.fastq.gz")
+    params:
+        input_path = input_path
+    run:
+        shell("cp -alf {params.input_path}/{wildcards.sample}*.R1.fastq.gz {output.read1}"),
+        shell("cp -alf {params.input_path}/{wildcards.sample}*.R2.fastq.gz {output.read2}")
+        
+rule trim:
+    input:
+        read1 = intermediate_path + "/reads/{sample}_read1.fastq.gz",
+        read2 =  intermediate_path + "/reads/{sample}_read2.fastq.gz"
+    output:
+        read_trim_read1 = intermediate_path + "/{sample}_R1_val_1.fq.gz",
+        read_trim_read2 =  intermediate_path + "/{sample}_R2_val_2.fq.gz",
+        read_unpaired_read1=intermediate_path + "/{sample}_R1_val_1.unp.fq.gz",
+        read_unpaired_read2=intermediate_path + "/{sample}_R2_val_2.unp.fq.gz"
+    params:
+        outputpath = intermediate_path
+    threads:
+        2
+    shell:
+       """
+       {config[TOOLSPATH]}/trimmomatic PE -phred33 -threads {threads} {input.read1} {input.read2} {output.read_trim_read1} {output.read_unpaired_read1} {output.read_trim_read2} {output.read_unpaired_read2} ILLUMINACLIP:{adapter_file}:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 && {config[TOOLSPATH]}/fastqc {output.read_trim_read1} && {config[TOOLSPATH]}/fastqc  {output.read_trim_read2}
+       """
+  
+rule summaryReport:
+    input:
+        trimFiles
+    output:
+        report = final_path + "/report_quality_control_after_trimming.html"
+    params:
+        path = intermediate_path
+    shell:
+        "{config[TOOLSPATH]}/multiqc {params.path} --filename {output.report}"

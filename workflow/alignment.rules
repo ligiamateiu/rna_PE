@@ -1,0 +1,72 @@
+import pandas as pd
+configfile: "configs/config_main.yaml"
+
+samples = pd.read_csv(config["METAFILE"], sep = '\t', header = 0)['sample']
+input_path = config["OUTPUTPATH"] + "/trim"
+end = config["END"]
+intermediate_path = config["OUTPUTPATH"]
+final_path = config["FINALOUTPUT"]
+pathtool = config["TOOLSPATH"]
+
+rule all:
+    input:
+        report = final_path + "/report_align_count.html"
+
+rule getReads:
+    output:
+        read1 = temp(intermediate_path + "/reads/{sample}_read1.fastq.gz"),
+        read2 = temp(intermediate_path + "/reads/{sample}_read2.fastq.gz")
+    params:
+        input_path = input_path
+    run:
+        shell("cp -alf {params.input_path}/{wildcards.sample}_R1_val_1.fq.gz {output.read1}"),
+        shell("cp -alf {params.input_path}/{wildcards.sample}_R2_val_2.fq.gz {output.read2}")
+
+
+rule alignment:
+    input:
+        read1 = intermediate_path + "/reads/{sample}_read1.fastq.gz",
+        read2 = intermediate_path + "/reads/{sample}_read2.fastq.gz"
+    params:
+        index = config["GENOMEINDEX"],
+        bamprefix = intermediate_path + "/bamFile/{sample}_",
+        baminit = intermediate_path + "/bamFile/{sample}_Aligned.sortedByCoord.out.bam",
+        annotation = config["ANNOTATION"],
+        sampleid = "{sample}"
+    output:
+        bam = final_path + "/bams/{sample}.bam"
+    threads:
+        config ["NCORE"]
+    run:
+        shell("{pathtool}/STAR  --runThreadN {config[NCORE]} --genomeDir {params.index} --readFilesIn {input.read1} {input.read2} --outFilterType BySJout --readFilesCommand zcat  --outSAMattributes NH HI NM MD  --outSAMtype BAM SortedByCoordinate --outFileNamePrefix {params.bamprefix} && {pathtool}/samtools view -bq 255 {params.baminit} -o {output.bam}")
+
+rule featureCount:
+    input:
+        bam = final_path + "/bams/{sample}.bam",
+        annotation = config["ANNOTATION"]
+    output:
+        countreads = final_path + "/countFile/{sample}_count.tsv",
+        count_summary = final_path + "/countFile/{sample}_count.tsv.summary"
+    threads:
+        config ["NCORE"]
+    run:
+        shell("{pathtool}/featureCounts -p -T {threads} -t exon -g {config[ATTRIBUTE]} -s {config[ORIENTATION]} -a {input.annotation} -o {output.countreads} {input.bam} && tail -n +3 {output.countreads} | cut -f1,7 > temp.{wildcards.sample} && mv temp.{wildcards.sample} {output.countreads}")
+
+
+rule alignmentQC:
+    input:
+        bam = final_path + "/bams/{sample}.bam"
+    output:
+        bamqc = directory(final_path + "/alignmentQC/{sample}_BAMqc")
+    shell:
+        "{config[TOOLSPATH]}/qualimap bamqc -bam {input.bam} -nr 1000 --java-mem-size=10G -nt {config[NCORE]} -outdir {output.bamqc}"
+
+rule summaryReport:
+    input:
+        bamqc = expand(final_path + "/alignmentQC/{sample}_BAMqc", sample = samples),
+        count_summary = expand(final_path + "/countFile/{sample}_count.tsv.summary", sample = samples)
+    output:
+        report = final_path + "/report_align_count.html"
+    shell:
+        "{config[TOOLSPATH]}/multiqc {input.bamqc} {input.count_summary} --filename {output.report}"
+

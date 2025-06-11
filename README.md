@@ -79,8 +79,8 @@ The workflow is divided into four main stages:
 
 ### 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone git@github.com:ligiamateiu/rna_PE.git
+cd rna_PE
 ```
 
 ### 2. Set up the environment:
@@ -156,9 +156,4 @@ Alternatively, you can run specific stages using Snakemake:
 - [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 - [STAR Aligner](https://github.com/alexdobin/STAR)
 
----
 
-## **Contact**
-For any issues or questions, contact the repository owner:
-- **Name:** Ligia
-- **Email:** [Your Email Address]
